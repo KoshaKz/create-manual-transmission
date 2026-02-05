@@ -24,9 +24,9 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 // Define properties for versions (as per wiki recommendation)
 ext {
     minecraft_version = "1.20.1"
-    create_version = "6.0.8-290" // Using version from TFMG properties
-    ponder_version = "1.0.92"    // Using version from TFMG properties
-    flywheel_version = "1.0.6-beta-269" // Using version from TFMG properties
+    create_version = "6.0.8-290" 
+    ponder_version = "1.0.92"   
+    flywheel_version = "1.0.6-beta-269" 
     registrate_version = "MC1.20-1.3.3"
 }
 
