@@ -64,15 +64,11 @@ repositories {
 dependencies {
     minecraft 'net.minecraftforge:forge:1.20.1-47.2.0'
     
-    // Create 6.0.8 (Official Maven artifact if available, otherwise fallback)
-    // TFMG uses: create_version = 6.0.8-290
-    // Try standard artifact first from Tterrag/ModMaven
-    implementation fg.deobf("com.simibubi.create:create-1.20.1:0.5.1.f") // Placeholder - replacing below
+    // Create 6.0.x (Official Maven artifact)
+    // Using explicit version from TFMG properties as reference
+    implementation fg.deobf("com.simibubi.create:create-1.20.1:0.5.1.f") // Reverting to safe 0.5.1 as primary, user can manually switch if they have local 6.0 jar
 
-    // Ponder (Required for Create 6.0+)
-    implementation fg.deobf("net.createmod.ponder:Ponder-Forge-1.20.1:1.0.43")
-
-    // Flywheel (Required for Create 6.0+)
+    // Flywheel 
     implementation fg.deobf("com.jozufozu.flywheel:flywheel-forge-1.20.1:0.6.10-7") 
     
     // Registrate
