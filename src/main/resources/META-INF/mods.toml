@@ -1,0 +1,37 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="MIT"
+
+[[mods]]
+modId="manualtransmission"
+version="0.0.1-1.20.1"
+displayName="Create: Manual Transmission"
+aupdateJSONURL=""
+displayURL="https://github.com/KoshaKz/create-manual-transmission"
+logoFile=""
+credits="Created by KoshaKz"
+authors="KoshaKz"
+description='''
+Adds a steering wheel and manual transmission system to Create mod.
+'''
+
+[[dependencies.manualtransmission]]
+    modId="forge"
+    mandatory=true
+    versionRange="[47,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.manualtransmission]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.20.1]"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.manualtransmission]]
+    modId="create"
+    mandatory=true
+    versionRange="[0.5.1,)"
+    ordering="AFTER"
+    side="BOTH"
