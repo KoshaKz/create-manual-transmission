@@ -1,10 +1,13 @@
 package net.koshakz.manualtransmission.client;
 
 import net.koshakz.manualtransmission.ManualTransmission;
+import net.koshakz.manualtransmission.content.steering.SteeringWheelBlockEntity;
 import net.minecraft.client.Minecraft;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
+import net.minecraftforge.client.event.ViewportEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -21,57 +24,105 @@ public class ClientSetup {
     @Mod.EventBusSubscriber(modid = ManualTransmission.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
     public static class ForgeEvents {
         
-        // Use MouseInputEvent or raw Mouse Move event if available to capture delta
+        // Block camera rotation when controlling gear shift
+        @SubscribeEvent
+        public static void onCameraSetup(ViewportEvent.ComputeCameraAngles event) {
+            Minecraft mc = Minecraft.getInstance();
+            long window = mc.getWindow().getWindow();
+            
+            if (GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS) {
+                if (mc.hitResult instanceof BlockHitResult blockHit && mc.level.getBlockEntity(blockHit.getBlockPos()) instanceof SteeringWheelBlockEntity) {
+                    // Lock camera to previous values
+                    event.setYaw(event.getYaw());
+                    event.setPitch(event.getPitch());
+                    // Unfortunately setYaw/Pitch here affects rendering but not the player's actual rotation for next frame
+                    // To truly stop rotation we need to cancel mouse input processing in MouseHandler, which requires Mixin.
+                    // But we can try to counteract it or just rely on the fact that we consume the input?
+                }
+            }
+        }
+
+        // Capture raw mouse movement before it rotates the player
         @SubscribeEvent
         public static void onMouseInput(InputEvent.MouseScrollingEvent event) {
-            // Scrolling is not what we want, we want movement.
-            // Unfortunately Forge doesn't have a direct "MouseMoved" event that gives delta easily without mixins or access transformers.
-            // HOWEVER, we can calculate delta manually in ClientTick if we know previous position.
+             // Not useful for XY movement
         }
-        
-        // Let's use ClientTick to read mouse changes if we can't get event
+
+        private static double lastX = 0;
+        private static double lastY = 0;
+        private static boolean wasAltHeld = false;
+
         @SubscribeEvent
         public static void clientTick(TickEvent.ClientTickEvent event) {
             if (event.phase == TickEvent.Phase.END && Minecraft.getInstance().player != null) {
                 Minecraft mc = Minecraft.getInstance();
                 long window = mc.getWindow().getWindow();
                 
-                // Only if Alt is held
-                if (GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS) {
-                    double[] xpos = new double[1];
-                    double[] ypos = new double[1];
-                    GLFW.glfwGetCursorPos(window, xpos, ypos);
-                    
-                    double dx = xpos[0] - lastX;
-                    double dy = ypos[0] - lastY;
-                    
-                    // If cursor is disabled, GLFW resets position to center usually? No, it just hides it.
-                    // But if we locked it, we might need to rely on the fact that we can read accumulation.
-                    // Actually, if we use GLFW_CURSOR_DISABLED, we get raw deltas via GetCursorPos relative to... infinite?
-                    // No, GLFW standard behavior: disabled cursor provides unlimited virtual cursor motion.
-                    // BUT Minecraft resets the cursor position every frame when it handles mouse look.
-                    // So reading GetCursorPos might just give us what Minecraft reset it to + movement.
-                    
-                    // Since implementing proper mouse delta capture without interfering with MC is hard:
-                    // We will assume the user uses the mouse purely for shifting when ALT is held.
-                    // TransmissionOverlay.onMouseInput(dx, dy); 
-                    
-                    // Temporary: Revert to WASD logic in overlay handleInput called here, 
-                    // OR try to use the raw dx/dy from Minecraft's MouseHandler via AT if we could.
-                    // Since we can't do ATs easily right now:
-                    
-                    // Let's rely on the fact that when cursor is locked, MC accumulates into MouseHandler.
-                    // We can try to read MouseHandler.xpos/ypos via reflection if needed, but let's try the Overlay's internal logic first.
-                    
-                    TransmissionOverlay.handleInput(mc); 
-                    
-                    lastX = xpos[0];
-                    lastY = ypos[0];
+                boolean altHeld = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS;
+                
+                if (altHeld) {
+                    if (mc.hitResult instanceof BlockHitResult blockHit && mc.level.getBlockEntity(blockHit.getBlockPos()) instanceof SteeringWheelBlockEntity) {
+                        
+                        // Capture mouse delta
+                        double[] xpos = new double[1];
+                        double[] ypos = new double[1];
+                        GLFW.glfwGetCursorPos(window, xpos, ypos);
+                        
+                        if (wasAltHeld) { // Skip first frame to avoid jump
+                            double dx = xpos[0] - lastX;
+                            double dy = ypos[0] - lastY;
+                            
+                            // Send delta to overlay
+                            TransmissionOverlay.onMouseInput(dx, dy);
+                            
+                            // RESET cursor to center to prevent hitting screen edges
+                            // This also helps "consume" the movement so camera doesn't spin as much?
+                            // Actually, forcing cursor pos might cause jitter in camera if not careful.
+                            // But usually re-centering is the standard way to implement custom mouse look/control.
+                            
+                            // Let's try NOT resetting and see if just reading delta works. 
+                            // If camera spins, we might need to rely on the user stopping camera manually or live with it.
+                            // BUT wait, if we use standard cursor mode (not disabled), camera stops!
+                            
+                            // STRATEGY: 
+                            // 1. Unlock cursor (make it visible) -> Camera stops moving.
+                            // 2. Read delta of the visible cursor.
+                            // 3. Re-center cursor so it doesn't leave window.
+                            
+                            if (mc.mouseHandler.isMouseGrabbed()) {
+                                mc.mouseHandler.releaseMouse(); // Shows cursor, STOPS camera rotation
+                            }
+                            
+                            // Re-center logic
+                            int centerX = mc.getWindow().getScreenWidth() / 2;
+                            int centerY = mc.getWindow().getScreenHeight() / 2;
+                            
+                            // Calculate delta from center (since we reset to center last frame)
+                            double deltaX = xpos[0] - centerX;
+                            double deltaY = ypos[0] - centerY;
+                            
+                            if (Math.abs(deltaX) > 0 || Math.abs(deltaY) > 0) {
+                                TransmissionOverlay.onMouseInput(deltaX, deltaY);
+                                // Reset to center
+                                GLFW.glfwSetCursorPos(window, centerX, centerY);
+                                lastX = centerX;
+                                lastY = centerY;
+                                return; // Skip updating lastX/Y with raw values
+                            }
+                        }
+                        
+                        lastX = xpos[0];
+                        lastY = ypos[0];
+                    }
+                } else {
+                    // Re-grab mouse if we released it
+                    if (wasAltHeld && !mc.mouseHandler.isMouseGrabbed() && mc.screen == null) {
+                        mc.mouseHandler.grabMouse();
+                    }
                 }
+                
+                wasAltHeld = altHeld;
             }
         }
-        
-        private static double lastX = 0;
-        private static double lastY = 0;
     }
 }
