@@ -25,13 +25,21 @@ public class TransmissionScreen extends Screen {
 
     @Override
     protected void init() {
-        // Optional: restore previous stick state from BE if possible
         super.init();
+        
+        // Sync state from BlockEntity when opening
+        if (Minecraft.getInstance().level.getBlockEntity(blockPos) instanceof SteeringWheelBlockEntity be) {
+            this.stickX = be.gearX;
+            this.stickY = be.gearY;
+            
+            // Recalculate gear just in case
+            calculateGear();
+        }
     }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        // No background tint
+        // No dark background
         
         int size = 100;
         int x = this.width - size - 20;
@@ -45,49 +53,81 @@ public class TransmissionScreen extends Screen {
         graphics.fill(x + 75, y + 10, x + 80, y + 90, 0xCC000000); // 5-6
         graphics.fill(x + 20, y + 45, x + 80, y + 50, 0xCC000000); // N
 
-        // Update Stick Position based on Mouse
-        // Map mouse position relative to H-pattern center to stick coordinates (-1 to 1)
+        // Determine Center
         float centerX = x + 50;
         float centerY = y + 50;
         
-        // Calculate raw input based on mouse position relative to center
-        float rawX = (mouseX - centerX) / 30.0f; 
-        float rawY = (mouseY - centerY) / 40.0f;
+        // --- INPUT LOGIC START ---
         
-        // Clamp logic
-        if (rawX < -1) rawX = -1;
-        if (rawX > 1) rawX = 1;
-        if (rawY < -1) rawY = -1;
-        if (rawY > 1) rawY = 1;
+        // Map mouse to -1..1 range
+        float rangeX = 30.0f;
+        float rangeY = 40.0f;
         
-        // Snap logic (Magnetic slots)
-        boolean inNeutralZone = Math.abs(rawY) < 0.2;
+        // Target is where the mouse IS
+        float targetX = (mouseX - centerX) / rangeX;
+        float targetY = (mouseY - centerY) / rangeY;
         
-        if (!inNeutralZone) {
-            // Lock into columns
-            if (rawX < -0.5) rawX = -1.0f;
-            else if (rawX > 0.5) rawX = 1.0f;
-            else rawX = 0.0f;
-        } else {
-             // In neutral, snap Y to 0
-             rawY = 0.0f;
+        // H-Pattern Constraint Logic
+        // We act like a physical object inside rails
+        
+        // 1. Clamp to box
+        if (targetX < -1) targetX = -1;
+        if (targetX > 1) targetX = 1;
+        if (targetY < -1) targetY = -1;
+        if (targetY > 1) targetY = 1;
+        
+        // 2. Logic:
+        // You can always move along Y if you are aligned with a column.
+        // You can always move along X if you are in Neutral (Y ~ 0).
+        
+        boolean inNeutralY = Math.abs(targetY) < 0.15f; 
+        
+        // Columns X centers: -1, 0, 1. (Actually we render them at: 22.5, 50.5, 77.5 relative to 100px box)
+        // Normalized X cols are roughly: -0.9, 0.0, 0.9 based on render code 
+        // Render code: 20-25 (Left), 48-53 (Center), 75-80 (Right) -> Centers: 22.5, 50.5, 77.5
+        // Box width 100. Center 50.
+        // Left col X: (22.5 - 50) / 28 = -0.98
+        // Center col X: 0
+        // Right col X: (77.5 - 50) / 28 = +0.98
+        
+        // We use stickX * 28 for render. So max range is roughly -1 to 1.
+        
+        float colThreshold = 0.3f; // Width of slot
+        boolean inLeftCol = Math.abs(stickX - (-1.0f)) < colThreshold;
+        boolean inCenterCol = Math.abs(stickX - 0.0f) < colThreshold;
+        boolean inRightCol = Math.abs(stickX - 1.0f) < colThreshold;
+        
+        // If we try to move Y out of neutral, we must be in a column
+        if (!inNeutralY) {
+            // We are trying to be in gear (Top or Bottom)
+            // Force X to snap to nearest column
+            if (Math.abs(targetX - (-1.0f)) < colThreshold) targetX = -1.0f;
+            else if (Math.abs(targetX - 0.0f) < colThreshold) targetX = 0.0f;
+            else if (Math.abs(targetX - 1.0f) < colThreshold) targetX = 1.0f;
+            else {
+                // Not in a column, force Y back to 0 (cannot enter gear)
+                targetY = 0.0f;
+                // Allow free X movement since we are now forced to Y=0
+            }
         }
         
-        this.stickX = rawX;
-        this.stickY = rawY;
+        // Apply
+        this.stickX = targetX;
+        this.stickY = targetY;
+        
+        // --- INPUT LOGIC END ---
 
         // Draw Stick Knob
         int knobX = x + 50 + (int)(stickX * 28); 
         int knobY = y + 48 + (int)(stickY * 40);
         
-        graphics.fill(knobX - 5, knobY - 5, knobX + 5, knobY + 5, 0xFFFF0000); // Red knob when active
+        graphics.fill(knobX - 5, knobY - 5, knobX + 5, knobY + 5, 0xFFFF0000); 
         
-        // Calculate Gear
         calculateGear();
         
         String gearName = currentGear == 0 ? "N" : String.valueOf(currentGear);
         graphics.drawString(this.font, "Gear: " + gearName, x, y - 20, 0xFFFFFF);
-        graphics.drawCenteredString(this.font, "Control Active", x + 50, y - 10, 0x00FF00);
+        graphics.drawCenteredString(this.font, "ACTIVE", x + 50, y - 10, 0x00FF00);
 
         RenderSystem.disableBlend();
     }
@@ -112,15 +152,10 @@ public class TransmissionScreen extends Screen {
 
     @Override
     public void tick() {
-        // Close if Alt is released
         long window = Minecraft.getInstance().getWindow().getWindow();
         if (GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) != GLFW.GLFW_PRESS) {
             this.onClose();
         }
-        
-        // Also check if we are still looking at the block (optional, but good for consistency)
-        // Actually, if we are in a screen, we shouldn't care where we look, 
-        // but let's close if player is too far? Nah, simpler is better.
     }
 
     @Override
