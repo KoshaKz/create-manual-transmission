@@ -24,105 +24,73 @@ public class ClientSetup {
     @Mod.EventBusSubscriber(modid = ManualTransmission.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
     public static class ForgeEvents {
         
-        // Block camera rotation when controlling gear shift
+        private static float lockedYaw = 0;
+        private static float lockedPitch = 0;
+        private static boolean wasAltHeld = false;
+        private static double lastX = 0;
+        private static double lastY = 0;
+
+        // Force camera to stay still when Alt is held
         @SubscribeEvent
         public static void onCameraSetup(ViewportEvent.ComputeCameraAngles event) {
             Minecraft mc = Minecraft.getInstance();
             long window = mc.getWindow().getWindow();
             
-            if (GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS) {
-                if (mc.hitResult instanceof BlockHitResult blockHit && mc.level.getBlockEntity(blockHit.getBlockPos()) instanceof SteeringWheelBlockEntity) {
-                    // Lock camera to previous values
-                    event.setYaw(event.getYaw());
-                    event.setPitch(event.getPitch());
-                    // Unfortunately setYaw/Pitch here affects rendering but not the player's actual rotation for next frame
-                    // To truly stop rotation we need to cancel mouse input processing in MouseHandler, which requires Mixin.
-                    // But we can try to counteract it or just rely on the fact that we consume the input?
-                }
+            boolean altHeld = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS;
+            
+            if (altHeld && wasAltHeld) { // Only lock if we are successfully tracking state
+                 if (mc.hitResult instanceof BlockHitResult blockHit && mc.level.getBlockEntity(blockHit.getBlockPos()) instanceof SteeringWheelBlockEntity) {
+                     event.setYaw(lockedYaw);
+                     event.setPitch(lockedPitch);
+                 }
             }
         }
-
-        // Capture raw mouse movement before it rotates the player
-        @SubscribeEvent
-        public static void onMouseInput(InputEvent.MouseScrollingEvent event) {
-             // Not useful for XY movement
-        }
-
-        private static double lastX = 0;
-        private static double lastY = 0;
-        private static boolean wasAltHeld = false;
 
         @SubscribeEvent
         public static void clientTick(TickEvent.ClientTickEvent event) {
-            if (event.phase == TickEvent.Phase.END && Minecraft.getInstance().player != null) {
-                Minecraft mc = Minecraft.getInstance();
-                long window = mc.getWindow().getWindow();
-                
-                boolean altHeld = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS;
-                
-                if (altHeld) {
-                    if (mc.hitResult instanceof BlockHitResult blockHit && mc.level.getBlockEntity(blockHit.getBlockPos()) instanceof SteeringWheelBlockEntity) {
-                        
-                        // Capture mouse delta
-                        double[] xpos = new double[1];
-                        double[] ypos = new double[1];
-                        GLFW.glfwGetCursorPos(window, xpos, ypos);
-                        
-                        if (wasAltHeld) { // Skip first frame to avoid jump
-                            double dx = xpos[0] - lastX;
-                            double dy = ypos[0] - lastY;
-                            
-                            // Send delta to overlay
-                            TransmissionOverlay.onMouseInput(dx, dy);
-                            
-                            // RESET cursor to center to prevent hitting screen edges
-                            // This also helps "consume" the movement so camera doesn't spin as much?
-                            // Actually, forcing cursor pos might cause jitter in camera if not careful.
-                            // But usually re-centering is the standard way to implement custom mouse look/control.
-                            
-                            // Let's try NOT resetting and see if just reading delta works. 
-                            // If camera spins, we might need to rely on the user stopping camera manually or live with it.
-                            // BUT wait, if we use standard cursor mode (not disabled), camera stops!
-                            
-                            // STRATEGY: 
-                            // 1. Unlock cursor (make it visible) -> Camera stops moving.
-                            // 2. Read delta of the visible cursor.
-                            // 3. Re-center cursor so it doesn't leave window.
-                            
-                            if (mc.mouseHandler.isMouseGrabbed()) {
-                                mc.mouseHandler.releaseMouse(); // Shows cursor, STOPS camera rotation
-                            }
-                            
-                            // Re-center logic
-                            int centerX = mc.getWindow().getScreenWidth() / 2;
-                            int centerY = mc.getWindow().getScreenHeight() / 2;
-                            
-                            // Calculate delta from center (since we reset to center last frame)
-                            double deltaX = xpos[0] - centerX;
-                            double deltaY = ypos[0] - centerY;
-                            
-                            if (Math.abs(deltaX) > 0 || Math.abs(deltaY) > 0) {
-                                TransmissionOverlay.onMouseInput(deltaX, deltaY);
-                                // Reset to center
-                                GLFW.glfwSetCursorPos(window, centerX, centerY);
-                                lastX = centerX;
-                                lastY = centerY;
-                                return; // Skip updating lastX/Y with raw values
-                            }
-                        }
-                        
-                        lastX = xpos[0];
-                        lastY = ypos[0];
-                    }
-                } else {
-                    // Re-grab mouse if we released it
-                    if (wasAltHeld && !mc.mouseHandler.isMouseGrabbed() && mc.screen == null) {
-                        mc.mouseHandler.grabMouse();
-                    }
-                }
-                
-                wasAltHeld = altHeld;
+            if (event.phase != TickEvent.Phase.END) return;
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.player == null) return;
+
+            long window = mc.getWindow().getWindow();
+            boolean altHeld = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS;
+            
+            // Check if looking at wheel
+            boolean lookingAtWheel = false;
+            if (mc.hitResult instanceof BlockHitResult blockHit && mc.level.getBlockEntity(blockHit.getBlockPos()) instanceof SteeringWheelBlockEntity) {
+                lookingAtWheel = true;
             }
+
+            if (altHeld && lookingAtWheel) {
+                if (!wasAltHeld) {
+                    // Just started holding Alt - lock current angles
+                    lockedYaw = mc.player.getYRot(); // Use entity rotation as base
+                    lockedPitch = mc.player.getXRot();
+                    
+                    // Init mouse pos
+                    double[] xpos = new double[1];
+                    double[] ypos = new double[1];
+                    GLFW.glfwGetCursorPos(window, xpos, ypos);
+                    lastX = xpos[0];
+                    lastY = ypos[0];
+                } else {
+                    // Holding Alt - read delta
+                    double[] xpos = new double[1];
+                    double[] ypos = new double[1];
+                    GLFW.glfwGetCursorPos(window, xpos, ypos);
+                    
+                    double dx = xpos[0] - lastX;
+                    double dy = ypos[0] - lastY;
+                    
+                    // Pass to overlay
+                    TransmissionOverlay.onMouseInput(dx, dy);
+                    
+                    lastX = xpos[0];
+                    lastY = ypos[0];
+                }
+            }
+            
+            wasAltHeld = altHeld && lookingAtWheel;
         }
     }
 }
