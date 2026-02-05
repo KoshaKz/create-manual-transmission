@@ -49,7 +49,6 @@ public class TransmissionOverlay {
 
         if (altHeld) {
             graphics.drawCenteredString(mc.font, "Mouse Control", x + 50, y - 10, 0xFFFFFF);
-            // We do NOT disable cursor here anymore, logic moved to ClientSetup to release mouse
         }
 
         // Draw Stick
@@ -64,19 +63,14 @@ public class TransmissionOverlay {
         RenderSystem.disableBlend();
     }
     
-    // Called from ClientSetup (WASD fallback removed, relying on mouse input)
     public static void handleInput(Minecraft mc) {}
     
     public static void onMouseInput(double deltaX, double deltaY) {
-        float speed = 0.05f;
-        
-        // Invert Y because screen Y is down, but mouse up usually means "forward" (gear 1/3/5)
-        // Actually, typically Mouse Up = negative delta Y on screen.
-        // Stick Y < 0 is TOP row (1/3/5).
-        // So Mouse Up (negative delta) should decrease Stick Y.
+        // Reduced sensitivity significantly for smoother control (was 0.05f)
+        float speed = 0.005f;
         
         stickX += (float) (deltaX * speed);
-        stickY += (float) (deltaY * speed); // DeltaY is normally negative when moving up
+        stickY += (float) (deltaY * speed);
         
         if (stickX < -1) stickX = -1;
         if (stickX > 1) stickX = 1;
