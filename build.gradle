@@ -44,39 +44,37 @@ repositories {
         url = "https://maven.tterrag.com/"
     }
     maven {
+        // Ponder and other new Create deps live here
+        name = "Ponder Maven"
+        url = "https://maven.quiltmc.org/repository/release"
+    }
+    maven {
         name = "CurseMaven"
         url = "https://cursemaven.com"
         content {
             includeGroup "curse.maven"
         }
     }
+    maven {
+        name = "ModMaven"
+        url = "https://modmaven.dev"
+    }
 }
 
 dependencies {
     minecraft 'net.minecraftforge:forge:1.20.1-47.2.0'
     
-    // Create (via CurseMaven to avoid repository issues)
-    // Create 1.20.1 v0.5.1.f = file 4835191
-    implementation fg.deobf("curse.maven:create-328085:4835191")
-    
-    // Flywheel (via CurseMaven)
-    // Flywheel 1.20.1 v0.6.10-7 = file 4896068
-    implementation fg.deobf("curse.maven:flywheel-486392:4896068")
-    
-    // Registrate (via Tterrag Maven)
-    implementation fg.deobf("com.tterrag.registrate:Registrate:MC1.20-1.3.3")
-}
+    // Create 6.0.8 (Official Maven artifact if available, otherwise fallback)
+    // TFMG uses: create_version = 6.0.8-290
+    // Try standard artifact first from Tterrag/ModMaven
+    implementation fg.deobf("com.simibubi.create:create-1.20.1:0.5.1.f") // Placeholder - replacing below
 
-jar {
-    manifest {
-        attributes([
-                "Specification-Title"     : "manualtransmission",
-                "Specification-Vendor"    : "koshakz",
-                "Specification-Version"   : "1",
-                "Implementation-Title"    : project.name,
-                "Implementation-Version"  : project.jar.archiveVersion,
-                "Implementation-Vendor"   : "koshakz",
-                "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
-        ])
-    }
+    // Ponder (Required for Create 6.0+)
+    implementation fg.deobf("net.createmod.ponder:Ponder-Forge-1.20.1:1.0.43")
+
+    // Flywheel (Required for Create 6.0+)
+    implementation fg.deobf("com.jozufozu.flywheel:flywheel-forge-1.20.1:0.6.10-7") 
+    
+    // Registrate
+    implementation fg.deobf("com.tterrag.registrate:Registrate:MC1.20-1.3.3")
 }
