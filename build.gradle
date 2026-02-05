@@ -43,21 +43,7 @@ repositories {
         name = "Tterrag maven"
         url = "https://maven.tterrag.com/"
     }
-    maven {
-        name = "Create Maven"
-        url = "https://maven.createmod.net/"
-    }
-    // Added specific repo for Flywheel dev artifacts as fallback
-    maven {
-        url = "https://maven.createmod.net/dev/engine-room/flywheel"
-    }
-    maven {
-        name = "CurseMaven"
-        url = "https://cursemaven.com"
-        content {
-            includeGroup "curse.maven"
-        }
-    }
+    // Локальная папка libs
     flatDir {
         dirs 'libs'
     }
@@ -66,25 +52,18 @@ repositories {
 dependencies {
     minecraft 'net.minecraftforge:forge:1.20.1-47.2.0'
     
-    // Manual local file fallback
-    // If you haven't downloaded the files to /libs yet, DO IT NOW.
-    // 1. create-1.20.1-0.5.1.i.jar (or whatever version you found)
-    // 2. flywheel-forge-1.20.1-1.0.2-13.jar (or whatever version you found)
+    // === ЛОКАЛЬНЫЕ ЗАВИСИМОСТИ ИЗ ПАПКИ LIBS ===
+    // Ты должен скачать файлы и переименовать их (или поменять имена здесь)
     
-    // UNCOMMENT THESE LINES AND COMMENT OUT THE ONES BELOW IF MAVEN KEEPS FAILING
-    // implementation files("libs/create-1.20.1.jar") 
-    // implementation files("libs/flywheel.jar") 
+    // 1. Create (любой версии, хоть 6.0, хоть 0.5.1)
+    // Положи файл в папку libs и назови его: create.jar
+    implementation fg.deobf(files("libs/create.jar"))
 
-    // Trying official Maven again with correct group/artifact names found in logs
-    // NOTE: If this fails, you MUST use local files in /libs/ and the 'files()' syntax above.
-    
-    // Create 6.0 (or latest 0.5.1 branch) - trying simpler version string
-    implementation fg.deobf("com.simibubi.create:create-1.20.1:0.5.1.f") 
-    
-    // Flywheel 0.6.10 (Standard for Create 0.5.1) - Reverting to stable
-    implementation fg.deobf("com.jozufozu.flywheel:flywheel-forge-1.20.1:0.6.10-7")
+    // 2. Flywheel (нужен для Create 6.0)
+    // Положи файл в папку libs и назови его: flywheel.jar
+    implementation fg.deobf(files("libs/flywheel.jar"))
 
-    // Registrate
+    // Registrate (обычно нормально качается, но можно тоже локально)
     implementation fg.deobf("com.tterrag.registrate:Registrate:MC1.20-1.3.3")
 }
 
