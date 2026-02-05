@@ -53,18 +53,28 @@ repositories {
         name = "Tterrag maven"
         url = "https://maven.tterrag.com/"
     }
+    maven {
+        name = "CurseMaven"
+        url = "https://cursemaven.com"
+        content {
+            includeGroup "curse.maven"
+        }
+    }
 }
 
 dependencies {
     minecraft 'net.minecraftforge:forge:1.20.1-47.2.0'
     
     // Create Dependency
-    implementation fg.deobf("com.simibubi.create:create-1.20.1:0.5.1.f")
+    // Используем CurseMaven для надежности, так как официальный maven может шалить
+    // Create 1.20.1 v0.5.1.f = file id 4835191
+    implementation fg.deobf("curse.maven:create-328085:4835191")
     
-    // Flywheel Dependency (Required by Create)
-    implementation fg.deobf("com.jozufozu.flywheel:flywheel-forge-1.20.1:0.6.10-7")
+    // Flywheel Dependency
+    // Flywheel 0.6.10-7 = file id 4896068
+    implementation fg.deobf("curse.maven:flywheel-486392:4896068")
     
-    // Registrate Dependency (Required by Create)
+    // Registrate Dependency
     implementation fg.deobf("com.tterrag.registrate:Registrate:MC1.20-1.3.3")
 }
 
