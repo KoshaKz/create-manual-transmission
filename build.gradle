@@ -50,7 +50,6 @@ repositories {
             includeGroup "curse.maven"
         }
     }
-    // Add local 'libs' folder as a flat directory repository
     flatDir {
         dirs 'libs'
     }
@@ -59,20 +58,19 @@ repositories {
 dependencies {
     minecraft 'net.minecraftforge:forge:1.20.1-47.2.0'
     
-    // Create 6.0+ via local file or CurseMaven if available later
-    // Option 1: Using local jar from /libs folder (Recommended for Create 6 right now)
-    // You MUST rename your downloaded jar to exactly "create-1.20.1-6.0.9.jar" or update this line
-    implementation fg.deobf("com.simibubi.create:create-1.20.1:6.0.9") 
+    // Explicit local file dependency pattern for when Maven resolution fails
+    // This looks for EXACT filenames in the /libs folder
     
-    // Dependencies for Create 6
-    // Flywheel 1.0 is now separate for Create 6
-    implementation fg.deobf("com.jozufozu.flywheel:flywheel-forge-1.20.1:1.0.0-beta-87") 
+    // Create 6.0.8 
+    // Rename your downloaded jar to: create-1.20.1-6.0.8.jar
+    implementation fg.deobf(files("libs/create-1.20.1-6.0.8.jar"))
     
-    // Registrate
+    // Flywheel 1.0.0-beta-87
+    // Rename your downloaded jar to: flywheel-forge-1.20.1-1.0.0-beta-87.jar
+    implementation fg.deobf(files("libs/flywheel-forge-1.20.1-1.0.0-beta-87.jar"))
+
+    // Registrate (Still try via Maven as it should be stable)
     implementation fg.deobf("com.tterrag.registrate:Registrate:MC1.20-1.3.3")
-    
-    // Ponder is also separate in 6.0, often bundled but good to be aware of
-    // implementation fg.deobf("net.createmod.ponder:Ponder-Forge-1.20.1:1.0.43")
 }
 
 jar {
