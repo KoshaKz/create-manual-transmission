@@ -1,11 +1,19 @@
-plugins {
-    id 'eclipse'
-    id 'maven-publish'
-    id 'net.minecraftforge.gradle' version '6.0.+'
+buildscript {
+    repositories {
+        maven { url = 'https://maven.minecraftforge.net' }
+        mavenCentral()
+    }
+    dependencies {
+        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '6.0.+'
+    }
 }
 
+apply plugin: 'net.minecraftforge.gradle'
+apply plugin: 'eclipse'
+apply plugin: 'maven-publish'
+
 version = '0.0.1-1.20.1'
-group = 'net.koshakz.manualtransmission' 
+group = 'net.koshakz.manualtransmission'
 archivesBaseName = 'manualtransmission'
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
@@ -24,26 +32,11 @@ minecraft {
                 }
             }
         }
-        server {
-            workingDirectory project.file('run')
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
-            mods {
-                manualtransmission {
-                    source sourceSets.main
-                }
-            }
-        }
     }
 }
 
 repositories {
     mavenCentral()
-    maven {
-        name = "Tterrag maven"
-        url = "https://maven.tterrag.com/"
-    }
-    // Локальная папка libs
     flatDir {
         dirs 'libs'
     }
@@ -51,32 +44,29 @@ repositories {
 
 dependencies {
     minecraft 'net.minecraftforge:forge:1.20.1-47.2.0'
-    
-    // === ЛОКАЛЬНЫЕ ЗАВИСИМОСТИ ИЗ ПАПКИ LIBS ===
-    // Ты должен скачать файлы и переименовать их (или поменять имена здесь)
-    
-    // 1. Create (любой версии, хоть 6.0, хоть 0.5.1)
-    // Положи файл в папку libs и назови его: create.jar
-    implementation fg.deobf(files("libs/create.jar"))
 
-    // 2. Flywheel (нужен для Create 6.0)
-    // Положи файл в папку libs и назови его: flywheel.jar
-    implementation fg.deobf(files("libs/flywheel.jar"))
-
-    // Registrate (обычно нормально качается, но можно тоже локально)
-    implementation fg.deobf("com.tterrag.registrate:Registrate:MC1.20-1.3.3")
+    // САМЫЙ ПРОСТОЙ ВАРИАНТ
+    // Подключаем jar как обычные файлы, без попытки их деобфусцировать через ForgeGradle сразу
+    // Это может дать кривые имена в коде, но сборка ЗАПУСТИТСЯ
+    implementation files("libs/create.jar")
+    implementation files("libs/flywheel.jar")
+    
+    // Если Registrate не качается, скачай его тоже и положи в libs как registrate.jar
+    // implementation files("libs/registrate.jar")
+    // Пока пробуем через интернет:
+    implementation "com.tterrag.registrate:Registrate:MC1.20-1.3.3"
 }
 
 jar {
     manifest {
         attributes([
-                "Specification-Title"     : "manualtransmission",
-                "Specification-Vendor"    : "koshakz",
-                "Specification-Version"   : "1",
-                "Implementation-Title"    : project.name,
-                "Implementation-Version"  : project.jar.archiveVersion,
-                "Implementation-Vendor"   : "koshakz",
-                "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+            "Specification-Title": "manualtransmission",
+            "Specification-Vendor": "koshakz",
+            "Specification-Version": "1",
+            "Implementation-Title": project.name,
+            "Implementation-Version": project.jar.archiveVersion,
+            "Implementation-Vendor" : "koshakz",
+            "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
         ])
     }
 }
