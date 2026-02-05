@@ -9,10 +9,6 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraftforge.client.gui.overlay.ForgeGui;
 import net.minecraftforge.client.gui.overlay.IGuiOverlay;
 
-/**
- * Passive HUD overlay: shows the H-pattern when looking at the steering wheel.
- * Actual input is handled by {@link TransmissionScreen}.
- */
 public class TransmissionOverlay {
 
     public static final IGuiOverlay OVERLAY = TransmissionOverlay::renderOverlay;
@@ -20,6 +16,9 @@ public class TransmissionOverlay {
     public static void renderOverlay(ForgeGui gui, GuiGraphics graphics, float partialTick, int screenWidth, int screenHeight) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null) return;
+        
+        // Don't render overlay if the screen is already open (avoid duplicate rendering)
+        if (mc.screen instanceof TransmissionScreen) return;
 
         HitResult hit = mc.hitResult;
         if (!(hit instanceof BlockHitResult blockHit)) return;
@@ -37,7 +36,12 @@ public class TransmissionOverlay {
         graphics.fill(x + 75, y + 10, x + 80, y + 90, 0x66000000);
         graphics.fill(x + 20, y + 45, x + 80, y + 50, 0x66000000);
 
-        graphics.drawString(mc.font, "Hold ALT", x, y - 20, 0xFFFFFF);
+        // REMOVED TEXT PROMPT as requested
+        // graphics.drawString(mc.font, "Hold ALT", x, y - 20, 0xFFFFFF);
+        
+        // Show current gear preview
+        String gearName = be.getGearRatio() == 0 ? "N" : String.format("%.1fx", be.getGearRatio());
+        graphics.drawCenteredString(mc.font, gearName, x + 50, y + 100, 0xFFFFFF);
 
         RenderSystem.disableBlend();
     }
